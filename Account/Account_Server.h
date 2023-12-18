@@ -13,9 +13,16 @@
 #include <unistd.h> // for read
 #include <thread>
 
+#include <openssl/sha.h> // SHA 관련 함수를 사용하기 위한 헤더파일
+#include <openssl/bio.h> // BIO 관련 함수를 사용하기 위한 헤더파일
+#include <openssl/evp.h> // EVP 관련 함수를 사용하기 위한 헤더파일
+
+
 #define MAX_CONNECTIONS 500 
 using namespace nlohmann;
 
+std::string sha512(const std::string& data);
+std::string base64(const unsigned char* buffer, size_t length);
 
 class Account_Session {
 public:
@@ -33,11 +40,13 @@ class Account_Server{
 private:
     int server_socket;
     ThreadPool* threadPool;
+    fd_set master_set;
+    int max_sd;
 
 public:
     ~Account_Server();
     Account_Server();
-    void start(int server_socket);
+    void ac_start();
 };
 
 #endif // ACCOUNT_SERVER_H

@@ -1,6 +1,4 @@
 #include "Save_Server.h"
-#include <iostream>
-#include <mysql/mysql.h>
 
 extern std::mutex mtx;
 //  main 함수
@@ -22,7 +20,7 @@ int main() {
             	insertNodeAtBack(&mysqlPool, conn);
     		}
     	
-    	 Server* server = new Server(&mysqlPool); // Server Class 생성
+    	Server* server = new Server(&mysqlPool); // Server Class 생성
 	    delete server;
     	return 0;
 }

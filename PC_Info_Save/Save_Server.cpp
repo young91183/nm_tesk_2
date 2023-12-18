@@ -146,11 +146,11 @@ void saveDB(json pc_data, MysqlPool *mysqlPool) {
     nic = save_nic_info(pc_data["nic"], conn, id, up_time);
 	if (nic != 0) {
         if (nic==1)std::cout << "network 저장 중 에러발생" << std::endl;
-        else if(nic==2)std::cout << "lo 저장 중 에러발생" << std::endl;
+        else std::cout << "lo 저장 중 에러발생" << std::endl;
         exit(1);
     }
     returnNodeToPool(mysqlPool, conn);
-}
+} 
 
 
 // json 정보를 쿼리문으로 바꾸는 코드 구현 부
@@ -177,7 +177,7 @@ int save_cpu_info(json j, MYSQL * conn, std::string id, std::string up_time){
 
 		if (mysql_query(conn, query.c_str())) { // 작성된 쿼리문을 mysql server에서 실행
 			std::cerr <<  mysql_error(conn) << std::endl;
-			exit(1);
+			return 1;
 		}
 	}
 		return 0;
