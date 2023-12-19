@@ -48,4 +48,6 @@ int save_disk_info(json j, MYSQL * conn, std::string id, std::string up_time);
 int save_nic_info(json nic, MYSQL * conn, std::string id, std::string up_time) ;
 int save_account_info(json j, MYSQL * conn, std::string id, std::string up_time) ;
 
+int check_login_state(std::string id, MYSQL * conn);
+
 #endif // SAVE_SERVER_H

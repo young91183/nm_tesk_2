@@ -85,6 +85,7 @@ private:
 public:
     ThreadPool(int size);
     ~ThreadPool();
+	void workerThread();
     void enqueue(std::function<void()> task);
     void join();
 	bool checkStopOrNotEmptyTasks();

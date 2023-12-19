@@ -78,10 +78,12 @@ void Server::ac_start() {
 
             if (req_buf == "account"){ // 계정 관련 요청인 경우
                 Account_Session* account_session = new Account_Session(client_socket);
-                std::thread(&Account_Session::start, account_session).detach(); // 삭제는 session 내부에서
+                account_session->start();
+                delete account_session;
             } else if (req_buf == "pc_info"){ // PC 상태정보 전송인 경우
                 PC_Info_Session* pc_info_session = new PC_Info_Session(client_socket, mysqlPool);
-                std::thread(&PC_Info_Session::start, pc_info_session).detach(); // 삭제는 session 내부에서
+                pc_info_session->start();
+                delete pc_info_session; // 삭제는 session 내부에서
             }
         }
     }

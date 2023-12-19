@@ -1,6 +1,5 @@
 #include "Account.h"
 
-extern std::mutex mtx;
 
 // Base64 인코딩 함수
 std::string base64(const unsigned char* buffer, size_t length) {
@@ -20,9 +19,9 @@ std::string base64(const unsigned char* buffer, size_t length) {
 	char* data;
 	long len = BIO_get_mem_data(bio, &data);
 
-	// 데이터를 std::string으로 변환합니다.
+	// 데이터를 std::string으로 변환
 	std::string encodedData(data, len);
-	// BIO를 해제합니다.
+	// BIO를 해제
 	BIO_free_all(bio);
 
 	return encodedData;
@@ -41,7 +40,7 @@ std::string sha512(const std::string& data) {
 }
 
 
-/* 계정인증 절차 Class ------------------------*/
+/*------------------------ 계정인증 절차 Class ------------------------*/
 Account_Session::Account_Session(int socket) : client_socket(socket) {}
 
 
@@ -54,6 +53,8 @@ void Account_Session::read_() {
 	std::string total_buffer, result = "", pw_temp;
 	char buffer[500];
 	ssize_t n;
+
+	// MYSQL Connection 생성
 	MYSQL *conn;
 	const char* server = "localhost";
 	const char* user = "root";
@@ -63,7 +64,7 @@ void Account_Session::read_() {
 	conn = mysql_init(NULL);
 	if(!mysql_real_connect(conn, server, user, password, database, 0, NULL, 0)) {
 		std::cerr << "mysql database err" << mysql_error(conn)<< std::endl;
-		exit(1);
+		exit(1); // MYSQL 서버에 이상이 있는 경우 서버 종료
 	}
 	
 	while((n = read(client_socket, buffer, sizeof(buffer)-1)) > 0) { 
@@ -79,10 +80,10 @@ void Account_Session::read_() {
 		pw_temp = j["password"].get<std::string>();
 		pw_temp = sha512(pw_temp);
 		j["password"] = base64(reinterpret_cast<const unsigned char*>(pw_temp.c_str()), pw_temp.size());
-		if (j["request"] == "login") result += login(j, conn);
-		else if (j["request"] == "logout") result += logout(j, conn);
-		else if (j["request"] == "join") result += join(j, conn);
-		else result = "잘못된 요청입니다.";
+		if (j["request"] == "login") result += login(j, conn); // 요청한 account 동작이 로그인인 경우
+		else if (j["request"] == "logout") result += logout(j, conn); // 요청한 account 동작이 로그아웃인 경우
+		else if (j["request"] == "join") result += join(j, conn); // 요청한 account 동작이 회원가입인 경우
+		else result = "잘못된 요청입니다."; // 요청한 account 동작이 목록에 없는 경우
 	}
 
 	result += '\0';
@@ -92,9 +93,10 @@ void Account_Session::read_() {
 		if (n < 0) std::cout << "write err\n";
 	}
 
+	// 여기서 로그 기록 필요!
 	close(client_socket); // 소켓 종료
+
 	mysql_close(conn);
-	delete this;
 }
 
 
@@ -103,10 +105,10 @@ std::string Account_Session::login(json account, MYSQL *conn) {
 	MYSQL_RES *res;
 	MYSQL_ROW row;
 	std::string result, query, id, pw, up_time, ip, state;
-	id = account["id"].get<std::string>();
-	pw = account["password"].get<std::string>();
-	up_time = account["up_time"].get<std::string>();
-	ip = account["ip"].get<std::string>();
+	id = account["id"].get<std::string>(); // 아이디 정보 추출
+	pw = account["password"].get<std::string>(); // 비밀번호 정보 추출
+	up_time = account["up_time"].get<std::string>(); // 시간 정보 추출
+	ip = account["ip"].get<std::string>(); // ip 정보 추출
 
 	// 아이디 비밀번호 조회
 	query = "SELECT state FROM account_info WHERE id='" + id + "' AND password='" + pw + "';";
@@ -150,7 +152,7 @@ std::string Account_Session::login(json account, MYSQL *conn) {
 	// 이상없이 로그인 정보 업데이트 성공하면
 	res = mysql_use_result(conn);
 	mysql_free_result(res);
-	result = "l_s";
+	result = "l_s"; // 정상적으로 로그인 되었다면 l_s 신호 반환
 	return result;
 }
 
@@ -160,10 +162,10 @@ std::string Account_Session::logout(json account, MYSQL *conn) {
 	MYSQL_RES *res;
 	MYSQL_ROW row;
 	std::string result, query, id, pw, up_time, ip, state;
-	id = account["id"].get<std::string>();
-	pw = account["password"].get<std::string>();
-	up_time = account["up_time"].get<std::string>();
-	ip = account["ip"].get<std::string>();
+	id = account["id"].get<std::string>(); // 아이디 정보 추출
+	pw = account["password"].get<std::string>(); // 비밀번호 정보 추출
+	up_time = account["up_time"].get<std::string>(); // 시간 정보 추출
+	ip = account["ip"].get<std::string>(); // ip 정보 추출
 
 	// 아이디 비밀번호 확인
 	query = "SELECT state FROM account_info WHERE id='" + id + "' AND password='" + pw + "';";
@@ -205,7 +207,7 @@ std::string Account_Session::logout(json account, MYSQL *conn) {
 	}
 	res = mysql_use_result(conn);
 	mysql_free_result(res);
-	result = "lo_s";
+	result = "lo_s"; // 정상적으로 로그아웃 되었다면 lo_s 신호 반환
 	return result;
 }
 
@@ -222,7 +224,7 @@ std::string Account_Session::join(json account, MYSQL *conn) {
 	q_key = "(state, ";
 	q_value = ") VALUES ('logout', ";
 	
-	for (auto& [key, value] : account.items()) {
+	for (auto& [key, value] : account.items()) { // json 파일 각 요소와 값 추출해 쿼리문 작성
 		if(key == "request") continue;
 		q_key += key + ", ";
 		q_value += "'" + value.get<std::string>() + "', ";
@@ -233,7 +235,7 @@ std::string Account_Session::join(json account, MYSQL *conn) {
 	query += q_key + q_value;
 
 	// INSERT 진행
-	if(mysql_query(conn, query.c_str())) { // 유니크한 ID에 중복이 발생했을 때
+	if(mysql_query(conn, query.c_str())) { // 유니크한 ID에 중복이 발생해 오류가 발생하는지 확인
 		res = mysql_use_result(conn);
 		mysql_free_result(res);
 		result = "회원 가입에 실패했습니다. (이미 있는 계정이거나 잘못된 입력입니다.)";
@@ -243,7 +245,7 @@ std::string Account_Session::join(json account, MYSQL *conn) {
 	// 문제없이 INSERT가 되었다면
 	res = mysql_use_result(conn);
 	mysql_free_result(res);
-	result = "j_s";
+	result = "j_s"; // 정상적으로 회원가입 되었다면 j_s 신호 반환
 	return result;
 }
 
