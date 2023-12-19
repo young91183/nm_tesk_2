@@ -34,7 +34,7 @@ MYSQL* getNodeFromFront(MysqlPool *mysqlPool) {
     	if (mysqlPool->firstNode == NULL) { // 만약 Connection Pool이 비어있는 경우
     		MYSQL* conn = mysql_init(NULL);
     		std::cout << "add mysql connect!" << std::endl;
-    		if (!mysql_real_connect(conn, "localhost", "root", "0000", "client_pc_data", 0, NULL, 0)) {
+    		if (!mysql_real_connect(conn, "localhost", "root", "0000", "client_management", 0, NULL, 0)) {
 			std::cerr << mysql_error(conn)<< std::endl;
 			exit(1);
 			}
@@ -51,72 +51,81 @@ MYSQL* getNodeFromFront(MysqlPool *mysqlPool) {
 
 // 사용 완료 Connection을 Mysql Pool에 반환하기 위한 함수 
 void returnNodeToPool(MysqlPool *mysqlPool, MYSQL* conn) {
-		std::lock_guard<std::mutex> lock(mtx);
-    	ConnNode* tempNode = new ConnNode();
-    	tempNode->conn = conn;
-    	tempNode->head = mysqlPool->lastNode;
-    	tempNode->tail = NULL;
+	std::lock_guard<std::mutex> lock(mtx);
+	ConnNode* tempNode = new ConnNode();
+	tempNode->conn = conn;
+	tempNode->head = mysqlPool->lastNode;
+	tempNode->tail = NULL;
 
-    	if (mysqlPool->lastNode != NULL){ // 만약 마지막 노드가 살아 있는 경우
-    		mysqlPool->lastNode->tail = tempNode; 
-    		mysqlPool->lastNode = tempNode; 
-    	}
-    	else if(mysqlPool->firstNode != NULL){ // 만약 lastNode가 Null이고 firstNode는 존재하는 경우
-    		mysqlPool->firstNode->tail = tempNode; 
-    		mysqlPool->lastNode = tempNode; 
-    	}
-    	else mysqlPool->firstNode = tempNode; // Pool이 비어있을 경우 
+	if (mysqlPool->lastNode != NULL){ // 만약 마지막 노드가 살아 있는 경우
+		mysqlPool->lastNode->tail = tempNode; 
+		mysqlPool->lastNode = tempNode; 
+	}
+	else if(mysqlPool->firstNode != NULL){ // 만약 lastNode가 Null이고 firstNode는 존재하는 경우
+		mysqlPool->firstNode->tail = tempNode; 
+		mysqlPool->lastNode = tempNode; 
+	}
+	else mysqlPool->firstNode = tempNode; // Pool이 비어있을 경우 
 }
 
 // ThreadPool 클래스의 구현
 ThreadPool::ThreadPool(int size) {
-		threads = new std::thread[size];
-        	for(int i = 0; i < size; i++) {
-            		threads[i] = std::thread([this] {
-                		while(true) {
-                    			std::function<void()> task;
-                    			{
-                        			std::unique_lock<std::mutex> lock(mtx);
-                        			cv.wait(lock, [this]{ return stop || !tasks.isEmpty(); });
-                        			if(stop && tasks.isEmpty()) return;
-                        			task = tasks.pop();
-                        			busy_threads++;
-                    			}
-                    			if(task) task();
-                    			{
-                        			std::unique_lock<std::mutex> lock(mtx);
-                        			busy_threads--;
-                        			if (tasks.isEmpty() && busy_threads == 0) {
-                            				cv_end.notify_all();
-                       				}
-                    			}
-                		}
-            		});
-        	}
+	threads = new std::thread[size];
+	for(int i = 0; i < size; i++) {
+		threads[i] = std::thread([this] {
+			while(true) {
+				std::function<void()> task;
+				{
+					std::unique_lock<std::mutex> lock(mtx_pool);
+                	cv.wait(lock, std::bind(&ThreadPool::checkStopOrNotEmptyTasks, this));
+					if(stop && tasks.isEmpty()) return;
+					task = tasks.pop();
+					busy_threads++;
+				}
+
+				if(task) task();
+				{
+					std::unique_lock<std::mutex> lock(mtx_pool);
+					busy_threads--;
+					if (tasks.isEmpty() && busy_threads == 0) {
+							cv_end.notify_all();
+					}
+				}
+			}
+		});
+	}
 }
 
 
 ThreadPool::~ThreadPool() {
-    	{
-    	std::unique_lock<std::mutex> lock(mtx);
+    {
+    	std::unique_lock<std::mutex> lock(mtx_pool);
     	stop = true;
 	}
 	cv.notify_all();
 	for(int i = 0; i < size; i++) {
 		if(threads[i].joinable()) threads[i].join();
-        }
+    }
 	delete[] threads;
+}
+
+bool ThreadPool::checkStopOrNotEmptyTasks() {
+    return stop || !tasks.isEmpty();
 }
 
 void ThreadPool::enqueue(std::function<void()> task) {
     	{
-   		std::unique_lock<std::mutex> lock(mtx);
+   		std::unique_lock<std::mutex> lock(mtx_pool);
    		tasks.push(task);
         }
     cv.notify_one();
 }
 
+bool ThreadPool::checkEmptyTasksAndBusyThreads() {
+	return tasks.isEmpty() && (busy_threads == 0);
+}
+
 void ThreadPool::join() {
-    std::unique_lock<std::mutex> lock(mtx);
-    cv_end.wait(lock, [this]{ return tasks.isEmpty() && (busy_threads == 0); });
+    std::unique_lock<std::mutex> lock(mtx_pool);
+    cv_end.wait(lock, std::bind(&ThreadPool::checkEmptyTasksAndBusyThreads, this));
 }

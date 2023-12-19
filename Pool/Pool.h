@@ -29,56 +29,56 @@ void returnNodeToPool(MysqlPool *mysqlPool, MYSQL* conn);
 
 class ThreadPool {
 private:
-    	class Node {
-   	public:
-        	std::function<void()> task;
-        	Node* next;
+	class Node {
+	public:
+		std::function<void()> task;
+		Node* next;
 
-        	Node(std::function<void()> task) : task(task), next(nullptr) {}
-   	 };
+		Node(std::function<void()> task) : task(task), next(nullptr) {}
+	};
 
-    	class Queue {
-    	private:
-		Node* front;
-        	Node* rear;
+	class Queue {
+	private:
+	Node* front;
+	Node* last;
 
-    	public:
-        	Queue() : front(nullptr), rear(nullptr) {}
+	public:
+	Queue() : front(nullptr), last(nullptr) {}
 
-        	void push(std::function<void()> task) {
-            		Node* node = new Node(task);
-            		if (isEmpty()) {
-            			front = rear = node;
-            		} else {
-                		rear->next = node;
-                		rear = node;
-            		}
-        	}
+	void push(std::function<void()> task) {
+		Node* node = new Node(task);
+		if (isEmpty()) {
+			front = last = node;
+		} else {
+			last->next = node;
+			last = node;
+		}
+	}
 
-        	std::function<void()> pop() {
-            		if (isEmpty()) {
-                		return nullptr;
-            		}
-            		Node* temp = front;
-            		std::function<void()> task = temp->task;
-            		front = front->next;
-            		if (front == nullptr) {
-                		rear = nullptr;
-            		}
-            		delete temp;
-            		return task;
-        	}
+	std::function<void()> pop() {
+		if (isEmpty()) {
+			return nullptr;
+		}
+		Node* temp = front;
+		std::function<void()> task = temp->task;
+		front = front->next;
+		if (front == nullptr) {
+			last = nullptr;
+		}
+		delete temp;
+		return task;
+	}
 
-        	bool isEmpty() {
-            		return front == nullptr;
-        	}
-    	};
+		bool isEmpty() {
+			return front == nullptr;
+		}
+	};
 
     	std::thread* threads;
     	int size, busy_threads = 0;
     	Queue tasks;
     	bool stop;
-    	std::mutex mtx;
+    	std::mutex mtx_pool;
     	std::condition_variable cv, cv_end;
 
  	
@@ -87,6 +87,8 @@ public:
     ~ThreadPool();
     void enqueue(std::function<void()> task);
     void join();
+	bool checkStopOrNotEmptyTasks();
+	bool checkEmptyTasksAndBusyThreads() ;
 };
 
 #endif // POOL_H
