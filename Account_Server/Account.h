@@ -26,11 +26,12 @@ std::string base64(const unsigned char* buffer, size_t length);
 
 class Account_Session {
 public:
-    	explicit Account_Session(int socket);
-    	void start();
+	explicit Account_Session(int socket);
+	nlohmann::json start();
 private:
 	int client_socket;
-    	void read_();
+	nlohmann::json login_id;
+    void read_();
 	std::string login(json account, MYSQL *conn);
 	std::string logout(json account, MYSQL *conn);
 	std::string join(json account, MYSQL *conn);

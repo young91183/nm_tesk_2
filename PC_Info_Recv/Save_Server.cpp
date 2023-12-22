@@ -58,9 +58,10 @@ int check_login_state(std::string id, MYSQL * conn) {
     }
 
     mysql_free_result(res);
-
+	
     return result;
 }
+
 
 
 /*-------------------------------- DB저장 구현 부 -------------------------------------------*/
@@ -76,33 +77,39 @@ void saveDB(json pc_data, MysqlPool *mysqlPool) {
 	login_check = check_login_state(id, conn);
 	if(login_check == 2){ // 만약 로그인 안된 ID라면
         std::cout << id << "는 로그인 되지 않은 ID 입니다.\n";
+		if(!(write_log_db(mysqlPool, "PC_Info_Save : don't login err", id))) exit(1);
         return;
     } else if(login_check == 1){ // ID에 대한 상태 조회 결과가 없다면
         std::cout << id << "는 존재하지 않거나 잘못된 ID 입니다.\n";
+		if(!(write_log_db(mysqlPool, "PC_Info_Save : wrong account err", id))) exit(1);
         return;
     }
 
 	// Info data update
 	if (save_account_info(pc_data["account_info"], conn, id, up_time) != 0) {
         std::cout << "account info 업데이트 중 에러발생" << std::endl;
+		if(!(write_log_db(mysqlPool, "PC_Info_Save : account_info_err", id))) exit(1);
         exit(1);
     }
 
 	// CPU data save
 	if (save_cpu_info(pc_data["cpu"], conn, id, up_time) != 0) {
         std::cout << "cpu 저장 중 에러발생" << std::endl;
+		if(!(write_log_db(mysqlPool, "PC_Info_Save : cpu_err", id))) exit(1);
         exit(1);
     }
 
 	// Memory data save
     if (save_memory_info(pc_data["mem"], conn, id, up_time) != 0) {
         std::cout << "memory 저장 중 에러발생" << std::endl;
+		if(!(write_log_db(mysqlPool, "PC_Info_Save : memory_err", id))) exit(1);
         exit(1);
     }
     
 	// Disk data save
 	if (save_disk_info(pc_data["disk"], conn, id, up_time) != 0) {
         std::cout << "disk 저장 중 에러발생" << std::endl;
+		if(!(write_log_db(mysqlPool, "PC_Info_Save : disk_err", id))) exit(1);
         exit(1);
     }
     
@@ -113,8 +120,11 @@ void saveDB(json pc_data, MysqlPool *mysqlPool) {
 	if (nic != 0) {
         if (nic==1)std::cout << "network 저장 중 에러발생" << std::endl;
         else std::cout << "lo 저장 중 에러발생" << std::endl;
+		if(!(write_log_db(mysqlPool, "PC_Info_Save : NIC_err", id))) exit(1);
         exit(1);
     }
+
+	if(!(write_log_db(mysqlPool, "PC_Info_Save : Success", id))) exit(1);
     returnNodeToPool(mysqlPool, conn);
 } 
 

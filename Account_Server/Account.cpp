@@ -1,5 +1,7 @@
 #include "Account.h"
 
+/*------------------------ 인코딩 관련 함수 ------------------------*/
+// 계정인증에서 사용되는 인코딩 관련 함수 정의 부
 
 // Base64 인코딩 함수
 std::string base64(const unsigned char* buffer, size_t length) {
@@ -40,12 +42,14 @@ std::string sha512(const std::string& data) {
 }
 
 
-/*------------------------ 계정인증 절차 Class ------------------------*/
+/*------------------------ 계정 정보처리 Class ------------------------*/
 Account_Session::Account_Session(int socket) : client_socket(socket) {}
 
 
-void Account_Session::start() {
+nlohmann::json Account_Session::start() {
 	read_();
+
+	return login_id; // acoount 모듈에서 어떤 동작을 했는지 반환
 }
 
 // 계정인증 정보 수신 + 결과 반환
@@ -53,6 +57,7 @@ void Account_Session::read_() {
 	std::string total_buffer, result = "", pw_temp;
 	char buffer[500];
 	ssize_t n;
+	nlohmann::json j;
 
 	// MYSQL Connection 생성
 	MYSQL *conn;
@@ -67,17 +72,19 @@ void Account_Session::read_() {
 		exit(1); // MYSQL 서버에 이상이 있는 경우 서버 종료
 	}
 	
-	while((n = read(client_socket, buffer, sizeof(buffer)-1)) > 0) { 
+	while((n = read(client_socket, buffer, sizeof(buffer)-1)) > 0) {
 		total_buffer += buffer;
 		if(buffer[n-1] == '\0') break;
 		memset(buffer, 0 , sizeof(buffer)); // 버퍼 초기화
 	}
+
 	if (n < 0){ 
 		std::perror("read");
 		result = "Server read error";
 	} else {
-		nlohmann::json j = nlohmann::json::parse(total_buffer); // dump된 메세지를 json 객체로 복구
+		j = nlohmann::json::parse(total_buffer); // dump된 메세지를 json 객체로 복구
 		pw_temp = j["password"].get<std::string>();
+		pw_temp += j["id"].get<std::string>();
 		pw_temp = sha512(pw_temp);
 		j["password"] = base64(reinterpret_cast<const unsigned char*>(pw_temp.c_str()), pw_temp.size());
 		if (j["request"] == "login") result += login(j, conn); // 요청한 account 동작이 로그인인 경우
@@ -86,7 +93,11 @@ void Account_Session::read_() {
 		else result = "잘못된 요청입니다."; // 요청한 account 동작이 목록에 없는 경우
 	}
 
+	login_id["res"] = result;
+	login_id["id"] = j["id"];
+
 	result += '\0';
+
 	//write result 진행
 	n = write(client_socket, result.c_str(), result.size());
 	if (n <= 0) {
@@ -94,8 +105,7 @@ void Account_Session::read_() {
 	}
 
 	// 여기서 로그 기록 필요!
-	close(client_socket); // 소켓 종료
-
+	//close(client_socket); // 소켓 종료
 	mysql_close(conn);
 }
 

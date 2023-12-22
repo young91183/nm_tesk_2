@@ -5,8 +5,10 @@ g++ -c -std=c++17 ./Account_Server/Account.cpp
 g++ -c ./Pool/Pool.cpp
 g++ -c -std=c++17 ./PC_Info_Recv/Save_Server.cpp
 g++ -c ./Server/Server.cpp
+g++ -c ./File_Recv/File_Recv.cpp
+g++ -c ./Log_To_DB/Log_To_DB.cpp
 g++ -c main.cpp
-g++ Account.o Pool.o Server.o Save_Server.o main.o -o qwe -lmysqlclient -lpthread -lcrypto
+g++ Account.o Pool.o Server.o Save_Server.o File_Recv.o main.o Log_To_DB.o -o qwe -lmysqlclient -lpthread -lcrypto
 
 # 모든 명령이 정상적으로 실행되었는지 확인합니다.
 if [ $? -eq 0 ]

@@ -2,6 +2,7 @@
 #define SAVE_SERVER_H
 
 #include "../Pool/Pool.h"
+#include "../Log_To_DB/Log_To_DB.h"
 #include <nlohmann/json.hpp>
 #include <mysql/mysql.h>
 #include <string>
@@ -47,7 +48,6 @@ int save_memory_info(json j, MYSQL * conn, std::string id, std::string up_time) 
 int save_disk_info(json j, MYSQL * conn, std::string id, std::string up_time);
 int save_nic_info(json nic, MYSQL * conn, std::string id, std::string up_time) ;
 int save_account_info(json j, MYSQL * conn, std::string id, std::string up_time) ;
-
 int check_login_state(std::string id, MYSQL * conn);
 
 #endif // SAVE_SERVER_H

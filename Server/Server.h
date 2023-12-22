@@ -1,9 +1,11 @@
-#ifndef ACCOUNT_SERVER_H
-#define ACCOUNT_SERVER_H
+#ifndef SERVER_H
+#define SERVER_H
 
 #include "../Pool/Pool.h"
+#include "../Log_To_DB/Log_To_DB.h"
 #include "../PC_Info_Recv/Save_Server.h"
 #include "../Account_Server/Account.h"
+#include "../File_Recv/File_Recv.h"
 #include <nlohmann/json.hpp>
 #include <mysql/mysql.h>
 #include <string>
@@ -21,17 +23,21 @@
 
 class Server{
 private:
-    int server_socket;
+    // 멤버변수
+    bool isLoop;
+    int server_socket, max_sd;
     MysqlPool* mysqlPool;
     ThreadPool* threadPool;
     fd_set master_set;
-    int max_sd;
+    std::mutex mtx_server;
+    nlohmann::json client_socket_json;
 
 public:
     ~Server();
     Server(MysqlPool* pool);
-    void ac_start_wrapper(int i);
     void ac_start();
+    void request_file();
+    // void ac_start_wrapper(int i);
 };
 
 #endif // SERVER_H

@@ -1,6 +1,6 @@
 #include "./Server/Server.h"
+#include "./Log_To_DB/Log_To_DB.h"
 
-extern std::mutex mtx;
 //  main 함수
 int main() {
 		MysqlPool mysqlPool = createMysqlPool(); 
@@ -21,6 +21,8 @@ int main() {
     	}
 
     	Server* server = new Server(&mysqlPool); // Server Class 생성
-	    delete server;
+		if(!(write_log_db(&mysqlPool, "Server : Server_ON", "_server"))) return 0;
+	    server->request_file();
+		delete server;
     	return 0;
 }
