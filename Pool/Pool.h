@@ -94,10 +94,10 @@ private:
 			return task;
 		}
 
-	// 큐가 비어 있는지 확인하는 메소드
-	bool isEmpty() {
-		return front == nullptr;
-	}
+		// 큐가 비어 있는지 확인하는 메소드
+		bool isEmpty() {
+			return front == nullptr;
+		}
 	};
 
 	std::thread* threads; // 스레드 풀로 사용될 스레드 배열
@@ -117,12 +117,12 @@ public:
 	
     // 작업을 큐에 추가하는 메소드
     void enqueue(std::function<void()> task);
-	
+
     // 모든 작업이 완료될 때까지 기다리는 메소드
     //void join();
-	
+
     // 종료 여부와 작업 큐의 상태를 확인하는 메소드
 	bool checkStopOrNotEmptyTasks();
-	bool checkEmptyTasksAndBusyThreads() ;
+	//bool checkEmptyTasksAndBusyThreads() ;
 };
 #endif // POOL_H

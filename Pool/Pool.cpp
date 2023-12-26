@@ -84,9 +84,9 @@ ThreadPool::ThreadPool(int size) : size(size), stop(false) {
 
 void ThreadPool::workerThread() {
     // 무한루프를 돌며 작업을 수행합니다.
-    while(true) {
+    while(!stop) {
         std::function<void()> task;
-        { // 뮤텍스 범위 설정
+        {   // 뮤텍스 범위 설정
             // 작업 큐에 대한 동기화를 위해 뮤텍스 잠금
             std::unique_lock<std::mutex> lock(mtx_pool);
             // 작업 큐가 비어 있거나 스레드 풀이 중단되기 전까지 대기
@@ -98,20 +98,21 @@ void ThreadPool::workerThread() {
             task = tasks.pop();
             // 작업 중인 스레드의 수를 증가
             busy_threads++;
+            std::cout << "작업 시작 " << busy_threads << " <- 작업 Thread 개수\n";
         }
 
         // 작업을 실행 (보통 여기서 대기)
         if(task) task();
 
-        { // 뮤텍스 범위
+        {   // 뮤텍스 범위
             std::unique_lock<std::mutex> lock(mtx_pool);
             // 작업이 완료되면 작업 중인 스레드의 수를 감소
             busy_threads--;
-
-            // 서버의 모든 작업이 완료되었을 떄는 cv_end로 알림
-            if (tasks.isEmpty() && busy_threads == 0) {
-                cv_end.notify_all();
-            }
+            std::cout << "작업 종료 " << busy_threads << " <- 작업 Thread 개수\n";
+        }
+        // 서버의 모든 작업이 완료되었을 떄는 cv_end로 알림
+        if (tasks.isEmpty() || busy_threads == 0) {
+            cv.notify_all();
         }
     }
 }
@@ -125,14 +126,20 @@ ThreadPool::~ThreadPool() {
         // 스레드 풀을 중단
         stop = true;
     }
+    std::cout << "Threads 종료 기다리는 중...\n";
     // wait 중인 모든 스레드 깨워서 stop 변화 감지시키기
-    cv.notify_all();
-
-    // for(int i = 0; i < size; i++) {
-    //     // 각 스레드가 종료될 때까지 대기
-    //     if(threads[i].joinable()) threads[i].join();
-    // }
-    // 동적으로 할당된 스레드 배열을 삭제
+    
+    for(int i = 0; i < size; i++) {
+        cv.notify_all();
+        std::cout << i << "번째 Thread 종료 기다리는 중...\n";
+        // 각 스레드가 종료될 때까지 대기
+        if(threads[i].joinable()) {
+            cv.notify_all();
+            threads[i].join();
+        }
+        std::cout << i << "번째 Thread 종료완료\n";
+        //std::cout << busy_threads << " <- 남은 동작 Thread 개수\n";
+    }
     delete[] threads;
 }
 
@@ -156,14 +163,14 @@ void ThreadPool::enqueue(std::function<void()> task) {
 
 
 // 작업 큐가 비어있는지와 작업 중인 스레드가 없는지 확인
-bool ThreadPool::checkEmptyTasksAndBusyThreads() {
-    return tasks.isEmpty() && (busy_threads == 0);
-}
+/*bool ThreadPool::checkEmptyTasksAndBusyThreads() {
+    return tasks.isEmpty() || (busy_threads == 0);
+}*/
 
-// 모든 작업이 완료될 때까지 대기
 /*
 void ThreadPool::join() {
     std::unique_lock<std::mutex> lock(mtx_pool);
     // 작업 큐가 비어있고, 작업 중인 스레드가 없을 때까지 대기
     cv_end.wait(lock, std::bind(&ThreadPool::checkEmptyTasksAndBusyThreads, this));
 }*/
+

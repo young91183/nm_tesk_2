@@ -10,6 +10,8 @@ g++ -c ./Log_To_DB/Log_To_DB.cpp
 g++ -c main.cpp
 g++ Account.o Pool.o Server.o Save_Server.o File_Recv.o main.o Log_To_DB.o -o qwe -lmysqlclient -lpthread -lcrypto
 
+rm Account.o Pool.o Server.o Save_Server.o File_Recv.o main.o Log_To_DB.o
+
 # 모든 명령이 정상적으로 실행되었는지 확인합니다.
 if [ $? -eq 0 ]
 then

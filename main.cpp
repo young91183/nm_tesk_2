@@ -24,5 +24,6 @@ int main() {
 		if(!(write_log_db(&mysqlPool, "Server : Server_ON", "_server"))) return 0;
 	    server->request_file();
 		delete server;
+		std::cout << "서버 시스템 종료\n";
     	return 0;
 }

@@ -3,8 +3,38 @@
 
 // 소멸 시 Thread Pool 삭제 -> 서버 종료
 Server::~Server() {
-	//threadPool->join();
+    std::cout << "활성화 소켓 close\n";
+    close(server_socket);
+    {
+        std::unique_lock<std::mutex> lock(mtx_server);
+        FD_CLR(server_socket, &master_set); // close된 client_socket 목록에서 삭제
+    }
+    std::cout << server_socket << " <- 서버 소켓 처리\n";
+
+    struct timeval timeout;
+    timeout.tv_sec = 1;  // 초 단위 시간
+    timeout.tv_usec = 0;  // 마이크로초 단위 시간
+    if ((select(max_sd + 1, &master_set, nullptr, nullptr, &timeout) < 0)) {
+        //std::cout << "활성화 소켓 존재\n";
+        for (int fd = 0; fd <= max_sd; fd++){
+            //std::cout << fd << " <- 소켓 처리\n";
+            if (!FD_ISSET(fd, &master_set)){
+                std::cout << fd << " <- 비활성화 소켓\n";
+                close(fd);
+                continue;
+            }
+            std::cout << fd << " <- 활성화 소켓\n";
+            {
+                std::unique_lock<std::mutex> lock(mtx_server);
+                FD_CLR(fd, &master_set); // close된 client_socket 목록에서 삭제
+            }
+            close(fd);
+        }
+    }
+    //std::cout << "소켓 닫기 성공\n";
+    std::cout << "Thread_Pool 소멸 시작\n";
 	delete threadPool;
+    std::cout << "Thread Pool 소멸 완료\n";
 }
 
 /*
@@ -51,27 +81,25 @@ void Server::ac_start() { // 멀티 Thread 에서 진행
     
     // 무한 루프를 돌면서 클라이언트 요청을 계속 확인
     while (isLoop) { // 이후 isLoop로 조건을 지정해서 압축파일 Control 하는 부분에서 조건문 통제
-        fd_set copy_set = master_set;
         char buffer[500];  // 클라이언트 요청을 저장할 버퍼
         std::string total_buffer, req_buf;
         ssize_t n;
+        struct timeval timeout;
+        timeout.tv_sec = 2;  // 초 단위 시간
+        timeout.tv_usec = 0;  // 마이크로초 단위 시간
+
+        fd_set copy_set = master_set;
         // select 함수를 통해 작업 가능한 소켓이 있는지 확인
-        if (select(max_sd + 1, &copy_set, nullptr, nullptr, nullptr) < 0) {
+        if (select(max_sd + 1, &copy_set, nullptr, nullptr, &timeout) < 0) {
             std::perror("select");
             break;
-        }
-
+        } else if (select(max_sd + 1, &copy_set, nullptr, nullptr, &timeout) == 0)
+            continue;
         // 모든 소켓을 순회하면서 작업 가능한 소켓이 있는지 확인
         for (int fd = 0; fd <= max_sd; fd++) {
             // 해당 소켓이 작업 가능한 상태가 아니라면 건너뛴다
             if (!FD_ISSET(fd, &copy_set)) continue;
 
-
-/*-------------------------------------------------------------------------------*/
-// 여기서 문제 발생. TimeOut 설정을 통해서 accept 중간에 나가도록 코드 수정해야함
-// 강제로 Thread 삭제했더니 코어덤프되고 난리남;
-// timeOut 설정 하고 나서 Pool.cpp / Pool.h도 해결해야함.
-/*-------------------------------------------------------------------------------*/
             if (fd == server_socket) { 
                 // 서버 소캣인 경우
                 sockaddr_in client_address{};
@@ -94,12 +122,9 @@ void Server::ac_start() { // 멀티 Thread 에서 진행
                         max_sd = client_socket;
                     }
                 }
-/*-------------------------------------------------------------------------------*/
-// 금요일까지 고치기
-/*-------------------------------------------------------------------------------*/
 
             } else { // client socket 인 경우
-                n = read(fd, buffer, 499);
+                n = read(fd, buffer, 500);
                 if (n < 0){
                     std::perror("read");
                     std::cout << "Client request error\n";
@@ -107,7 +132,7 @@ void Server::ac_start() { // 멀티 Thread 에서 진행
                 }
                 {
                     std::unique_lock<std::mutex> lock(mtx_server);
-                    FD_CLR(fd, &master_set); // close된 client_socket 목록에서 삭제
+                    FD_CLR(fd, &master_set); // client_socket select 목록에서 삭제
                 }
                 req_buf = buffer;
                 
@@ -147,7 +172,6 @@ void Server::ac_start() { // 멀티 Thread 에서 진행
         } // for 문 종료
     } // while문 종료
 }
-
 
 // 서버 동작 부 -> 파일요청 및 시스템 종료 제어
 void Server::request_file() {
@@ -203,16 +227,13 @@ void Server::request_file() {
                 std::cout << "잘못된 경로입니다. 처음부터 다시 입력해 주십시오.\n";
                 if(!(write_log_db(mysqlPool, "File_Recv : req_file_path_err", id))) exit(1);
                 continue;
-            } else if (comp_err_msg == "lz4_err"){
-                std::cout << "압축 중 오류가 발생했습니다.처음부터 다시 시도해 주십시오.\n";
-                if(!(write_log_db(mysqlPool, "File_Recv : req_file_comp_err", id)))exit(1); 
-                continue;
             }
+
             std::cout << comp_err_msg << std::endl;
             if(!(write_log_db(mysqlPool, "File_Recv : start_file_recv", id))) exit(1);
             File_Recv* file_recv = new File_Recv(mysqlPool, request_socket, id);
             std::thread(&File_Recv::start, file_recv).detach();
-            
+            std::cout << id << "로부터 파일 전송 받기 시작!\n";
         } else {
             std::cout << "잘못된 요청입니다. 다시 입력해 주세요.\n";
             continue;
