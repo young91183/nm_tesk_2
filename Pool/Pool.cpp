@@ -98,7 +98,7 @@ void ThreadPool::workerThread() {
             task = tasks.pop();
             // 작업 중인 스레드의 수를 증가
             busy_threads++;
-            std::cout << "작업 시작 " << busy_threads << " <- 작업 Thread 개수\n";
+            //std::cout << "작업 시작 " << busy_threads << " <- 작업 Thread 개수\n";
         }
 
         // 작업을 실행 (보통 여기서 대기)
@@ -108,7 +108,7 @@ void ThreadPool::workerThread() {
             std::unique_lock<std::mutex> lock(mtx_pool);
             // 작업이 완료되면 작업 중인 스레드의 수를 감소
             busy_threads--;
-            std::cout << "작업 종료 " << busy_threads << " <- 작업 Thread 개수\n";
+            //std::cout << "작업 종료 " << busy_threads << " <- 남은 작업 개수\n";
         }
         // 서버의 모든 작업이 완료되었을 떄는 cv_end로 알림
         if (tasks.isEmpty() || busy_threads == 0) {

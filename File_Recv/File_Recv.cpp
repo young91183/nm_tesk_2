@@ -17,11 +17,8 @@ void File_Recv::start() {
         exit(1);
     }
 
-    std::cout << size_buf << " buf byte \n";
-
     int size = std::stoi(size_buf);
-
-    std::cout << size << " Byte \n";
+    //std::cout << size << " Byte \n";
 
     char* file_buffer = new char[4048];
     ssize_t bytes_received;
@@ -45,6 +42,8 @@ void File_Recv::start() {
 }
 
 /*----------------파일 정보 수신 실패작-----------------------------------------*/
+
+// 파일 정보 한번에 받기 실패
 /*
 if (read(client_socket, file_buffer, size) != size) {
     printf("파일 데이터 수신 오류\n");
@@ -56,6 +55,7 @@ if (read(client_socket, file_buffer, size) != size) {
 received_file.write(file_buffer, size);
 */
 
+// 파일 정보 순차적으로 받고, EOS 또는 압축 에러 캐치해서 중단하기
 /*
 while (true) {
     bytes_received = read(client_socket, file_buffer, sizeof(file_buffer));
